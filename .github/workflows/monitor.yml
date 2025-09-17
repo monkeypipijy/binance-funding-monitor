@@ -1,0 +1,110 @@
+name: Binance Funding Rate Monitor
+
+on:
+  # 定時執行
+  schedule:
+    # 杈5分鐘執行一次 (UTC時間)
+    - cron: '*/5 * * * *'
+    # 每小時執行一次 (UTC時間)  
+    - cron: '0 * * * *'
+  
+  # 手動觸發
+  workflow_dispatch:
+    inputs:
+      cycle_type:
+        description: '監控周期類型'
+        required: true
+        default: '5min'
+        type: choice
+        options:
+        - '5min'
+        - '1hour'
+
+jobs:
+  funding-monitor-5min:
+    # 只在5分鐘定時任務或手動選擇5min時執行
+    if: (github.event_name == 'schedule' && github.event.schedule == '*/5 * * * *') || (github.event_name == 'workflow_dispatch' && github.event.inputs.cycle_type == '5min')
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Create data directory
+      run: mkdir -p data
+    
+    - name: Run 5-minute monitoring
+      env:
+        BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
+        BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
+        BINANCE_TESTNET: ${{ secrets.BINANCE_TESTNET }}
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        LOG_LEVEL: INFO
+      run: |
+        cd src
+        python main.py --cycle 5min
+    
+    - name: Upload data artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: funding-data-5min-${{ github.run_number }}
+        path: data/*
+        retention-days: 7
+
+  funding-monitor-1hour:
+    # 只在1小時定時任務或手動選擇1hour時執行
+    if: (github.event_name == 'schedule' && github.event.schedule == '0 * * * *') || (github.event_name == 'workflow_dispatch' && github.event.inputs.cycle_type == '1hour')
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Create data directory
+      run: mkdir -p data
+    
+    - name: Run 1-hour monitoring
+      env:
+        BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
+        BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
+        BINANCE_TESTNET: ${{ secrets.BINANCE_TESTNET }}
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        LOG_LEVEL: INFO
+      run: |
+        cd src
+        python main.py --cycle 1hour
+    
+    - name: Upload data artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: funding-data-1hour-${{ github.run_number }}
+        path: data/*
+        retention-days: 30
